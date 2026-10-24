@@ -1,0 +1,16 @@
+# Runtime state — contains YOUR window titles; never commit this
+registry.json
+
+# Captures, locks, logs, daemon scratch
+*.png
+*.lock
+*.log
+*.pending
+__pycache__/
+panel-health.json
+debug-state.json
+picker-debug.json
+gradient-state.json
+multi-pending-*
+edge-window.json
+shelf-state.json

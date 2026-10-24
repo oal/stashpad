@@ -1,0 +1,24 @@
+id = "oal/edge-shelf-trial"
+name = "Floating window shelf (trial)"
+version = "0.2.0"
+plugin_api = 33
+author = "oal"
+description = "Reversible lifetime-numbered floating windows with cached thumbnails and search."
+icon = "layout-sidebar-left-collapse"
+
+[[service]]
+id = "monitor"
+entry = "monitor.luau"
+
+[[widget]]
+id = "bar"
+entry = "bar.luau"
+
+[[panel]]
+id = "picker"
+entry = "picker.luau"
+width = 620
+height = 520
+position = "center"
+keyboard_focus = "exclusive"
+capture_keys = ["Up", "Down"]
