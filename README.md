@@ -27,16 +27,20 @@ niri `config.kdl`:
 binds {
     Mod+S repeat=false hotkey-overlay-title="Stash floating / summon recent shelf window" { spawn "python3" "/path/to/stashpad/shelf.py" "toggle"; }
     Mod+Shift+S repeat=false hotkey-overlay-title="Search floating shelf" { spawn "noctalia" "msg" "panel-toggle" "oal/edge-shelf-trial:picker"; }
+    Mod+Left  cooldown-ms=150 { spawn "python3" "/path/to/stashpad/shelf.py" "cycle" "left"; }
+    Mod+Right cooldown-ms=150 { spawn "python3" "/path/to/stashpad/shelf.py" "cycle" "right"; }
 }
 ```
 
 `toggle` stashes the focused window, or summons the most recently used stashed one. Clicking a bar pill toggles that specific window either direction.
 
+`cycle` is a conditional takeover of the arrows: when the focused window is the *only visible* pad window it stashes it and summons the next/previous stashed one in **slot order** (bar-pill left-to-right), wrapping — so exactly one float stays on screen and you can mash the arrow to rotate the pad. In every other focus state the command instantly falls through to niri's own `focus-column-left/right`, so the keys keep their normal job (expect ~20 ms extra latency from the spawn; `cooldown-ms` keeps hold-repeat sane).
+
 ## Install
 
 Requirements: **niri ≥ 26.x** (tested on 26.04) and **Noctalia ≥ 5.3** (plugin API 33/34).
 
-1. Clone, then make the paths real: the four `plugin/*.luau` files each reference the backend with an absolute `local helper = "/…/stashpad/shelf.py"` line — set it to your checkout. (`panel-toggle` ids in your keybinds use the manifest id `oal/edge-shelf-trial`.)
+1. Clone, then make the paths real: the four `edge-shelf-trial/*.luau` files each reference the backend with an absolute `local helper = "/…/stashpad/shelf.py"` line — set it to your checkout. (`panel-toggle` ids in your keybinds use the manifest id `oal/edge-shelf-trial`.) The Luau folder must stay named `edge-shelf-trial/` (the manifest id's slug): Noctalia path-sources resolve `<source>/<id-slug>/plugin.toml` when enabling, so a differently named folder is listed but silently never enables.
 2. Register the plugin: `noctalia msg plugins source add stashpad path /path/to/stashpad` then `noctalia msg plugins enable oal/edge-shelf-trial`.
 3. Add the bar widget to `~/.config/noctalia/config.toml`:
 
@@ -65,7 +69,7 @@ The backend spawns automatically as the plugin's `[[service]]`; it keeps a lock,
 | `single_window.py` | niri IPC socket client helpers |
 | `edge_shelf.py` | vendored first-generation helpers (position/BIND/state) |
 | `registry.py` | registry model (slots, tokens, generations) |
-| `plugin/` | Noctalia Luau: `bar.luau` (pills), `picker.luau` (search panel), `monitor.luau` (service), `plugin.toml` |
+| `edge-shelf-trial/` | Noctalia Luau: `bar.luau` (pills), `picker.luau` (search panel), `monitor.luau` (service), `plugin.toml` |
 | `*-test.py` | offline unit tests + bounded live regression tests (they drive your real desktop; read before running) |
 
 Runtime state lives in `registry.json` (git-ignored: it contains your **window titles** — don't commit it, and don't point backups of it at public places).

@@ -249,6 +249,15 @@ def stash(value, entry, window):
         raise
     if window["is_focused"]:
         niri_action("FocusTiling")
+        if (next((w for w in request("Workspaces") if w["is_focused"]), {}).get("name") or "") == WS_NAME:
+            # No tiled window existed (e.g. stash issued while the shelf ws was
+            # focused): hand focus to a real workspace so the shelf stays hidden.
+            dest = next((w["id"] for w in request("Workspaces") if (w.get("name") or "") != WS_NAME), None)
+            if dest is not None:
+                try:
+                    niri_action("FocusWorkspace", reference={"Id": dest})
+                except Exception:
+                    pass
     start_preview()
 
 
@@ -311,6 +320,37 @@ def picker_focus(prior=None):
                 "token": entry["token"] if entry else None}
 
 
+def cycle(value, windows, direction):
+    """Swap the sole visible shelf window with the next/previous stashed one.
+
+    Super+Left/Right takeover: when the focused window is the only visible
+    shelf entry, stashing it and summoning the neighbor in SLOT order (pill
+    left-to-right) keeps exactly one float on screen. Any other focus state
+    falls through to the column-focus action the key originally performed.
+    """
+    step = 1 if str(direction) in ("right", "next", "1", "+1") else -1
+    ordered = sorted(value["entries"], key=lambda e: e["slot"])
+    entry = None
+    focused = next((w for w in windows if w["is_focused"]), None)
+    if focused:
+        entry = entry_for(value, focused["id"])
+    target = None
+    if entry and not entry["stashed"] and sum(1 for e in ordered if not e["stashed"]) == 1:
+        idx = ordered.index(entry)
+        for offset in range(1, len(ordered)):
+            cand = ordered[(idx + step * offset) % len(ordered)]
+            if cand["stashed"]:
+                target = cand
+                break
+    if target is None:
+        niri_action("FocusColumnRight" if step > 0 else "FocusColumnLeft")
+        return
+    stash(value, entry, next(w for w in windows if w["id"] == entry["id"]))
+    summoned = next((w for w in request("Windows") if w["id"] == target["id"]), None)
+    if summoned is not None:
+        restore_entry(value, target, summoned, summon=True)
+
+
 def change(action, argument=None, token=None):
     with command_lock():
         value, windows = synchronize()
@@ -319,6 +359,8 @@ def change(action, argument=None, token=None):
             for e in value["entries"]:
                 if e["stashed"]:
                     restore_entry(value, e, next(w for w in windows if w["id"] == e["id"]))
+        elif action == "cycle":
+            cycle(value, windows, argument)
         else:
             entry = None
             if action == "slot":
@@ -563,10 +605,10 @@ if __name__ == "__main__":
             print(json.dumps(picker_focus(json.loads(sys.argv[2]) if len(sys.argv) > 2 else None)))
         elif action in ("undo", "rollback-single"):
             rollback(action == "rollback-single")
-        elif action in ("toggle", "stash", "restore", "restore-all", "restore-focus", "slot", "activate", "summon", "picker-toggle"):
+        elif action in ("toggle", "stash", "restore", "restore-all", "restore-focus", "slot", "activate", "summon", "picker-toggle", "cycle"):
             change(action, sys.argv[2] if len(sys.argv) > 2 else None, sys.argv[3] if len(sys.argv) > 3 else None)
         else:
-            raise RuntimeError("Usage: shelf.py [toggle|slot N|activate ID TOKEN|summon ID TOKEN|restore-all|status|rollback-single|undo]")
+            raise RuntimeError("Usage: shelf.py [toggle|cycle left|right|slot N|activate ID TOKEN|summon ID TOKEN|restore-all|status|rollback-single|undo]")
     except Exception as error:
         print("[shelf] " + str(error), file=sys.stderr)
         if action not in ("watch", "preview", "status", "picker-focus"):
