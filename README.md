@@ -4,9 +4,7 @@ Stash floating windows out of sight on niri + [Noctalia](https://noctalia.dev), 
 
 Press `Super+S` on a floating window and it *slides up behind the bar and vanishes*. Its app icon and a live thumbnail stay as a pill in the bar. Press `Super+S` again (or click the pill) and it *slides back down* exactly where it was.
 
-```
-bar:  [ws 1][ws 2] [🐍 ▫][🎵 ▫][🖥 ▫]   ← stashpad pills (icon + live window thumbnail)
-```
+![Stash pills in the top bar: app icon + live window thumbnail per stashed window](docs/assets-bar-pills.png)
 
 Built as a Noctalia plugin (Luau: bar widget + searchable picker panel + a service that owns the backend) around a Python backend that talks to niri over its IPC socket and captures window thumbnails via niri's `org.gnome.Mutter.ScreenCast` D-Bus API. No compositor patches, no external layer-shell clients — everything rides documented APIs.
 
@@ -15,7 +13,9 @@ Built as a Noctalia plugin (Luau: bar widget + searchable picker panel + a servi
 - **Stash**: the window is moved to the top screen edge with niri's own `window-movement` spring (that's the slide), then — ~300 ms later — teleported to a dedicated named workspace `"shelf"` that this tool injects into your niri config *only while stashes exist*. Niri deletes it when it empties.
 - **Summon**: teleport back to a real workspace (it lands at the parked top-edge coordinates) and niri animates the final move — a slide down from behind the bar. The bar (44 px) covers the clamp sliver, so windows appear to emerge from / vanish into the bar itself.
 - **Thumbnails**: each stash (and every content change bump) re-captures the window through the Screencast API; the pill shows the cached image.
-- **Picker** (`Super+Shift+S`): searchable panel — app, title, `stashed`/`visible` filters; rows toggle the same way.
+- **Picker** (`Super+Shift+S`): searchable panel — app, title, `stashed`/`visible` filters; rows toggle the same way, sorted most-recently-viewed first (a visible window is marked with an eye):
+
+  ![The picker panel: icons, titles, live thumbnails and eye markers](docs/assets-picker.png)
 
 niri has no hidden workspaces and no minimize (the clamp keeps ~39 px of any mapped window visible, and floats render above tiling), so a self-managing workspace is what makes stashes *actually* invisible — and the slide choreography is what keeps them feeling physical.
 

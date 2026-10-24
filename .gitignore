@@ -3,6 +3,7 @@ registry.json
 
 # Captures, locks, logs, daemon scratch
 *.png
+!docs/*.png
 *.lock
 *.log
 *.pending
