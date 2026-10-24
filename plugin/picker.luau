@@ -9,6 +9,29 @@ local openRevision = 0
 local focusContext = nil
 local pendingSelection = nil
 local busy = false
+local icons = {}
+
+local function appIcon(entry)
+    if icons[entry.app_id] == nil then
+        icons[entry.app_id] = noctalia.appIconPath(entry.app_id, 32) or false
+    end
+    if icons[entry.app_id] then
+        return ui.image({ path = icons[entry.app_id], width = 20, height = 20, fit = "contain" })
+    end
+    return ui.glyph({ name = "app-window", size = 16, color = "on_surface" })
+end
+
+local function thumb(entry)
+    if not entry.stashed then return nil end
+    if entry.image then
+        return ui.image({ path = entry.image, width = 72, height = 40, fit = "cover", radius = 6 })
+    end
+    return ui.column({ width = 72, height = 40, align = "center", justify = "center",
+        fill = "surface_variant", radius = 6 }, {
+        ui.glyph({ name = entry.preview_state == "unavailable" and "photo-off" or "photo",
+            size = 14, color = "on_surface_variant" }),
+    })
+end
 
 local function dispatch(entry)
     local revision = openRevision
@@ -48,21 +71,24 @@ local function render()
     selected = math.clamp(selected, 1, math.max(1, #results))
     local rows = {}
     for index, entry in ipairs(results) do
-        table.insert(rows, ui.row({ key = entry.token, paddingH = 12, paddingV = 10, gap = 12,
-            align = "center", radius = 8, fill = index == selected and "surface_variant" or "surface",
-            onClick = function() activate(entry) end,
-            tooltip = "Stash if focused; otherwise bring here and focus",
-        }, {
-            ui.label({ text = tostring(entry.slot), width = 24, fontWeight = "bold", color = "primary" }),
+        local children = {
+            appIcon(entry),
             ui.column({ gap = 4, flexGrow = 1 }, {
                 ui.label({ text = entry.title, fontWeight = "semibold", maxLines = 1 }),
                 ui.label({ text = entry.app_id, color = "on_surface_variant", fontSize = 12, maxLines = 1 }),
             }),
-            ui.column({ gap = 4, align = "end" }, {
-                ui.label({ text = entry.stashed and "Stashed" or "Visible", fontSize = 12 }),
-                ui.label({ text = "Workspace " .. entry.workspace, fontSize = 12, color = "on_surface_variant" }),
-            }),
+        }
+        local picture = thumb(entry)
+        if picture then table.insert(children, picture) end
+        table.insert(children, ui.column({ gap = 4, align = "end" }, {
+            ui.label({ text = entry.stashed and "Stashed" or "Visible", fontSize = 12 }),
+            ui.label({ text = "Workspace " .. entry.workspace, fontSize = 12, color = "on_surface_variant" }),
         }))
+        table.insert(rows, ui.row({ key = entry.token, paddingH = 12, paddingV = 8, gap = 12,
+            align = "center", radius = 8, fill = index == selected and "surface_variant" or "surface",
+            onClick = function() activate(entry) end,
+            tooltip = "Click to stash or summon",
+        }, children))
     end
     if #rows == 0 then
         table.insert(rows, ui.label({ text = #((snapshot or {}).entries or {}) == 0
@@ -75,12 +101,12 @@ local function render()
             ui.button({ glyph = "x", variant = "ghost", tooltip = "Close · Esc", onClick = function() panel.close() end }),
         }),
         ui.input({ key = "search-" .. tostring(openRevision), value = query, focus = true,
-            placeholder = "Search app, title, number or state…",
+            placeholder = "Search app, title or state…",
             onChange = function(text) query = text; selected = 1; render() end,
             onSubmit = function() activate(results[selected]) end }),
         ui.scroll({ key = "results", height = 0, flexGrow = 1, gap = 4,
             revealKey = results[selected] and results[selected].token or "" }, rows),
-        ui.label({ text = "↑ ↓ select · Enter toggle · Esc close · Super+Alt+1…9 direct slot",
+        ui.label({ text = "↑ ↓ select · Enter toggle · Esc close",
             fontSize = 12, color = "on_surface_variant", maxLines = 2 }),
     }))
 end
