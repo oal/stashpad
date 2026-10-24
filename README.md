@@ -34,7 +34,7 @@ binds {
 
 `toggle` stashes the focused window, or summons the most recently used stashed one. Clicking a bar pill toggles that specific window either direction.
 
-`cycle` is a conditional takeover of the arrows: when the focused window is the *only visible* pad window it stashes it and summons the next/previous stashed one in **slot order** (bar-pill left-to-right), wrapping — so exactly one float stays on screen and you can mash the arrow to rotate the pad. In every other focus state the command instantly falls through to niri's own `focus-column-left/right`, so the keys keep their normal job (expect ~20 ms extra latency from the spawn; `cooldown-ms` keeps hold-repeat sane).
+`cycle` is a conditional takeover of the arrows: when the focused window is the *only visible* pad window it swaps in place with the next/previous stashed one in **slot order** (bar-pill left-to-right), wrapping — an **instant** swap (both windows move while invisible; no slide), so exactly one float stays on screen and you can mash the arrow to rotate the pad. The slide-from-the-bar animation is kept for plain stash/summon, where a float appears or vanishes on its own. In every other focus state the command instantly falls through to niri's own `focus-column-left/right`, so the keys keep their normal job (expect ~20 ms extra latency from the spawn; `cooldown-ms` keeps hold-repeat sane).
 
 ## Install
 

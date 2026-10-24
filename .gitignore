@@ -15,3 +15,6 @@ gradient-state.json
 multi-pending-*
 edge-window.json
 shelf-state.json
+
+# command lock file (single-window era name)
+lock

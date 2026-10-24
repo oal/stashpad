@@ -264,6 +264,18 @@ def stash(value, entry, window):
 def restore_entry(value, entry, window, summon=False):
     target = next((w for w in request("Workspaces") if w["is_focused"]), {}) if summon else {}
     parked = entry["stashed"]
+    if summon and parked:
+        # Cycle-stashed windows sit at their home coords on the shelf, so a
+        # teleport would land them with nothing left to animate. Re-park them
+        # off the top edge while still invisible; the normal flow then slides
+        # them in like any other summon.
+        parked_at = entry.get("original_position")
+        here = position(window)
+        if parked_at and here == parked_at:
+            h = window["layout"]["window_size"][1]
+            single.move(window, 0, -(h + 600) - here[1])
+            time.sleep(EDGE_SETTLE)
+            window = next((w for w in request("Windows") if w["id"] == entry["id"]), window)
     original = entry.get("original_position") if parked else position(window)
     entry["generation"] += 1
     save(value)  # Cancel THIS row's capture before any movement.
@@ -320,6 +332,65 @@ def picker_focus(prior=None):
                 "token": entry["token"] if entry else None}
 
 
+def cycle_swap(value, out_entry, out_window, in_entry):
+    """Instant pad rotation: teleport out, reposition invisibly, teleport in.
+
+    No edge slides: both windows move while invisible (out teleports at rest;
+    in is nudged back to its saved coords ON the shelf first, where niri's
+    spring is unobservable, then lands already in place). The slide is kept
+    only for plain stash/summon where a float appears or vanishes alone.
+    """
+    out_ws = out_window["workspace_id"]
+    out_entry.update(original_position=position(out_window), original_workspace=out_ws,
+                     restore_size=list(out_window["layout"]["window_size"]),
+                     stashed=True, generation=out_entry["generation"] + 1,
+                     last_used=time.monotonic())
+    out_entry.pop("preview_error", None)
+    save(value)
+    try:
+        ensure_shelf_ws()
+        niri_action("MoveWindowToWorkspace", window_id=out_window["id"],
+                    reference={"Name": WS_NAME}, focus=False)
+        moved = next((w for w in request("Windows") if w["id"] == out_window["id"]), None)
+        if moved is None or not moved.get("workspace_id") or moved["workspace_id"] == out_ws:
+            raise RuntimeError("window did not move to the shelf workspace")
+        out_entry["stashed_ws"] = moved["workspace_id"]
+        save(value)
+    except Exception:
+        out_entry["stashed"] = False
+        out_entry["stashed_ws"] = None
+        out_entry["generation"] += 1
+        save(value)
+        raise
+    win = next((w for w in request("Windows") if w["id"] == in_entry["id"]), None)
+    if win is None:
+        return
+    restore = in_entry.get("restore_size")
+    if restore:
+        resize(win, restore[0], restore[1])
+    parked_at = in_entry.get("original_position")
+    if parked_at and position(win) != parked_at:
+        # Window was previously animated-stashed (parked at the top edge) or
+        # resized: align it while still hidden, then the teleport lands it
+        # exactly where it belongs with no further movement.
+        now = position(win)
+        single.move(win, parked_at[0] - now[0], parked_at[1] - now[1])
+        time.sleep(EDGE_SETTLE)
+        win = next((w for w in request("Windows") if w["id"] == in_entry["id"]), win)
+    ids = {w["id"] for w in request("Workspaces")}
+    dest = out_ws if out_ws in ids else next((w["id"] for w in request("Workspaces")
+                                              if (w.get("name") or "") != WS_NAME), None)
+    if dest is not None and win["workspace_id"] != dest:
+        niri_action("MoveWindowToWorkspace", window_id=win["id"], reference={"Id": dest}, focus=False)
+        win = next((w for w in request("Windows") if w["id"] == in_entry["id"]), win)
+    in_entry["stashed_ws"] = None
+    in_entry["stashed"] = False
+    in_entry["generation"] += 1
+    niri_action("FocusWindow", id=win["id"])
+    in_entry["last_used"] = time.monotonic()
+    save(value)
+
+
 def cycle(value, windows, direction):
     """Swap the sole visible shelf window with the next/previous stashed one.
 
@@ -345,10 +416,8 @@ def cycle(value, windows, direction):
     if target is None:
         niri_action("FocusColumnRight" if step > 0 else "FocusColumnLeft")
         return
-    stash(value, entry, next(w for w in windows if w["id"] == entry["id"]))
-    summoned = next((w for w in request("Windows") if w["id"] == target["id"]), None)
-    if summoned is not None:
-        restore_entry(value, target, summoned, summon=True)
+    cycle_swap(value, entry, next(w for w in windows if w["id"] == entry["id"]), target)
+    start_preview()
 
 
 def change(action, argument=None, token=None):
