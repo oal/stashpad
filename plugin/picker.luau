@@ -22,15 +22,17 @@ local function appIcon(entry)
 end
 
 local function thumb(entry)
-    if not entry.stashed then return nil end
     if entry.image then
         return ui.image({ path = entry.image, width = 72, height = 40, fit = "cover", radius = 6 })
     end
-    return ui.column({ width = 72, height = 40, align = "center", justify = "center",
-        fill = "surface_variant", radius = 6 }, {
-        ui.glyph({ name = entry.preview_state == "unavailable" and "photo-off" or "photo",
-            size = 14, color = "on_surface_variant" }),
-    })
+    if entry.stashed then
+        return ui.column({ width = 72, height = 40, align = "center", justify = "center",
+            fill = "surface_variant", radius = 6 }, {
+            ui.glyph({ name = entry.preview_state == "unavailable" and "photo-off" or "photo",
+                size = 14, color = "on_surface_variant" }),
+        })
+    end
+    return nil
 end
 
 local function dispatch(entry)
@@ -68,6 +70,12 @@ local function render()
         local matches = string.find(haystack, needle, 1, true) ~= nil
         if matches then table.insert(results, entry) end
     end
+    -- Most recently viewed first; slot order breaks ties (stable list).
+    table.sort(results, function(a, b)
+        local ua, ub = a.last_used or 0, b.last_used or 0
+        if ua ~= ub then return ua > ub end
+        return (a.slot or 0) < (b.slot or 0)
+    end)
     selected = math.clamp(selected, 1, math.max(1, #results))
     local rows = {}
     for index, entry in ipairs(results) do
@@ -78,16 +86,15 @@ local function render()
                 ui.label({ text = entry.app_id, color = "on_surface_variant", fontSize = 12, maxLines = 1 }),
             }),
         }
+        if not entry.stashed then
+            table.insert(children, ui.glyph({ name = "eye", size = 16, color = "on_surface_variant" }))
+        end
         local picture = thumb(entry)
         if picture then table.insert(children, picture) end
-        table.insert(children, ui.column({ gap = 4, align = "end" }, {
-            ui.label({ text = entry.stashed and "Stashed" or "Visible", fontSize = 12 }),
-            ui.label({ text = "Workspace " .. entry.workspace, fontSize = 12, color = "on_surface_variant" }),
-        }))
         table.insert(rows, ui.row({ key = entry.token, paddingH = 12, paddingV = 8, gap = 12,
             align = "center", radius = 8, fill = index == selected and "surface_variant" or "surface",
             onClick = function() activate(entry) end,
-            tooltip = "Click to stash or summon",
+            tooltip = entry.stashed and "Stashed — click to summon" or "Visible — click to stash",
         }, children))
     end
     if #rows == 0 then

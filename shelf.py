@@ -193,7 +193,7 @@ def snapshot(value):
         fresh = e.get("image") and e.get("capture_generation") == e["generation"]
         preview_state = ("ready" if fresh else "unavailable" if e.get("failed_generation") == e["generation"]
                          else "loading" if e["stashed"] else "uncaptured")
-        rows.append({k: e.get(k) for k in ("id", "token", "slot", "title", "app_id", "stashed", "focused", "image", "generation", "workspace_id")} | {
+        rows.append({k: e.get(k) for k in ("id", "token", "slot", "title", "app_id", "stashed", "focused", "image", "generation", "workspace_id", "last_used")} | {
             "workspace": names.get(e["workspace_id"], "?"), "preview_state": preview_state,
             "cached": bool(e.get("image") and not fresh)})
     # Global list; opaque full-height rail covers every parked edge behind it.
